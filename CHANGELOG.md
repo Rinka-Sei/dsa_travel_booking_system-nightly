@@ -4,6 +4,21 @@ All notable changes, milestones, refactoring phases, and documentation updates f
 
 ---
 
+## [2026-11-08] - Salted SHA-256 Password Cryptography & Security Hardening
+
+### Added
+- **`PasswordUtil.java` (`service/`):** Implemented cryptographic password security using 16-byte random salt generation (`SecureRandom`) and SHA-256 message digests (`MessageDigest`). Standard format: `<saltHex>$<hashHex>`.
+- **Constant-Time Verification:** Used `MessageDigest.isEqual` to prevent side-channel timing attacks during password authentication.
+- **Legacy Fallback Compatibility:** Built-in verification fallback support for un-salted plain-text seed records (e.g., `admin123`) and raw SHA-256 digests.
+- **`PasswordUtilTest.java`:** Added 6 comprehensive JUnit 5 unit tests covering salt randomness, verification success/failure, input validation, and legacy fallback support.
+
+### Changed
+- **`LoginFrame.java`:** Secured user registration and authentication by hashing passwords before persisting to database and caching in `CustomerHashTable`, and verifying via `PasswordUtil.verifyPassword(...)`.
+- **`CustomerRegistryService.java`:** Integrated `PasswordUtil` into `registerCustomer(...)` and `authenticate(...)`.
+- **`database/01_admin.sql`:** Expanded `users.password` column definition from `VARCHAR(50)` to `VARCHAR(255)` to prevent truncation of salted cryptographic digests.
+
+---
+
 ## [2026-11-06] - Automated JavaDoc Deployment & Admin-Only Report Access
 
 ### Added

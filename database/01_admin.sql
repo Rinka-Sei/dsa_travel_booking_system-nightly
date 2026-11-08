@@ -13,7 +13,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- 2. User authentication table
 CREATE TABLE users (
     username VARCHAR(50) PRIMARY KEY,
-    password VARCHAR(50) NOT NULL,
+    password VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL
 );
 

@@ -78,7 +78,7 @@ public class CustomerRegistryService {
                 }
             }
         }
-        if (u != null && u.getPassword().equals(password)) {
+        if (u != null && PasswordUtil.verifyPassword(password, u.getPassword())) {
             return u;
         }
         return null;
@@ -92,14 +92,15 @@ public class CustomerRegistryService {
      * @throws SQLException if username already exists or insert fails
      */
     public void registerCustomer(String username, String password) throws SQLException {
+        String hashedPassword = PasswordUtil.hashPassword(password);
         String sql = "INSERT INTO users(username, password, role) VALUES(?, ?, 'CUSTOMER')";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, username);
-            ps.setString(2, password);
+            ps.setString(2, hashedPassword);
             ps.executeUpdate();
         }
-        cacheUser(new User(username, password, "CUSTOMER"));
+        cacheUser(new User(username, hashedPassword, "CUSTOMER"));
     }
 
     /**

@@ -2,6 +2,7 @@ package gui;
 
 import database.DBConnection;
 import model.User;
+import service.PasswordUtil;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
@@ -137,7 +138,7 @@ public class LoginFrame extends JFrame implements ActionListener {
                 } catch (SQLException ignored) {}
             }
 
-            if (u != null && u.getPassword().equals(pass)) {
+            if (u != null && PasswordUtil.verifyPassword(pass, u.getPassword())) {
                 JOptionPane.showMessageDialog(this, "Login Successful! Welcome " + u.getUsername());
                 MainFrame mainFrame = new MainFrame(u.getUsername(), u.getRole());
                 mainFrame.setVisible(true);
@@ -154,15 +155,16 @@ public class LoginFrame extends JFrame implements ActionListener {
                 return;
             }
 
+            String hashedPassword = PasswordUtil.hashPassword(pass);
             try (Connection conn = DBConnection.getConnection();
                  PreparedStatement ps = conn.prepareStatement("INSERT INTO users(username, password, role) VALUES(?, ?, 'CUSTOMER')")) {
                 ps.setString(1, user);
-                ps.setString(2, pass);
+                ps.setString(2, hashedPassword);
                 ps.executeUpdate();
 
                 if (userTableInstance != null && hashTablePutMethod != null) {
                     try {
-                        hashTablePutMethod.invoke(userTableInstance, user, new User(user, pass, "CUSTOMER"));
+                        hashTablePutMethod.invoke(userTableInstance, user, new User(user, hashedPassword, "CUSTOMER"));
                     } catch (Exception ignored) {}
                 }
 
