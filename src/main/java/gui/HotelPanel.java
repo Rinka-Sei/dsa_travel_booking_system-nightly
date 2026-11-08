@@ -12,7 +12,8 @@ import java.sql.*;
 
 /**
  * Panel view for managing and searching hotel listings.
- * Provides role-based administrative controls (Add/Remove Hotel) and location search filtering.
+ * Provides role-based administrative controls (Add/Remove Hotel), Enter-key submission,
+ * deletion confirmation dialogs, and real-time location search filtering.
  */
 public class HotelPanel extends JPanel implements ActionListener {
 
@@ -37,73 +38,88 @@ public class HotelPanel extends JPanel implements ActionListener {
     public HotelPanel(MainFrame parent) {
         this.parentFrame = parent;
         setLayout(null);
-        setBounds(0, 0, 900, 580);
+        setBounds(0, 0, 1005, 595);
 
         boolean isAdmin = "ADMIN".equals(parent.getCurrentRole());
 
         if (isAdmin) {
             JLabel lblId = new JLabel("Hotel ID:");
-            lblId.setBounds(10, 10, 70, 25);
+            lblId.setBounds(10, 12, 60, 25);
             add(lblId);
 
             txtHotelId = new JTextField();
-            txtHotelId.setBounds(80, 10, 80, 25);
+            txtHotelId.setBounds(72, 12, 75, 25);
             add(txtHotelId);
 
             JLabel lblName = new JLabel("Name:");
-            lblName.setBounds(170, 10, 50, 25);
+            lblName.setBounds(155, 12, 45, 25);
             add(lblName);
 
             txtHotelName = new JTextField();
-            txtHotelName.setBounds(220, 10, 120, 25);
+            txtHotelName.setBounds(203, 12, 140, 25);
             add(txtHotelName);
 
             JLabel lblLoc = new JLabel("Location:");
-            lblLoc.setBounds(350, 10, 60, 25);
+            lblLoc.setBounds(350, 12, 60, 25);
             add(lblLoc);
 
             txtLocation = new JTextField();
-            txtLocation.setBounds(410, 10, 100, 25);
+            txtLocation.setBounds(413, 12, 130, 25);
             add(txtLocation);
 
             JLabel lblRat = new JLabel("Rating:");
-            lblRat.setBounds(10, 45, 50, 25);
+            lblRat.setBounds(550, 12, 50, 25);
             add(lblRat);
 
             txtRating = new JTextField();
-            txtRating.setBounds(60, 45, 50, 25);
+            txtRating.setBounds(603, 12, 50, 25);
             add(txtRating);
 
             JLabel lblPrice = new JLabel("Price/Night:");
-            lblPrice.setBounds(120, 45, 80, 25);
+            lblPrice.setBounds(660, 12, 75, 25);
             add(lblPrice);
 
             txtHotelPrice = new JTextField();
-            txtHotelPrice.setBounds(200, 45, 80, 25);
+            txtHotelPrice.setBounds(738, 12, 75, 25);
             add(txtHotelPrice);
 
             btnAdd = new JButton("Add Hotel");
-            btnAdd.setBounds(290, 45, 100, 25);
+            btnAdd.setBounds(10, 48, 105, 26);
             btnAdd.addActionListener(this);
             add(btnAdd);
 
             btnUpdate = new JButton("Update Selected");
-            btnUpdate.setBounds(395, 45, 135, 25);
+            btnUpdate.setBounds(123, 48, 130, 26);
             btnUpdate.addActionListener(this);
             add(btnUpdate);
 
             btnDelete = new JButton("Remove Selected");
-            btnDelete.setBounds(535, 45, 140, 25);
+            btnDelete.setBounds(261, 48, 135, 26);
             btnDelete.addActionListener(this);
             add(btnDelete);
+
+            // Enter-key trigger for quick addition from any form field
+            KeyAdapter enterSubmitAdapter = new KeyAdapter() {
+                @Override
+                public void keyPressed(KeyEvent e) {
+                    if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                        btnAdd.doClick();
+                    }
+                }
+            };
+            txtHotelId.addKeyListener(enterSubmitAdapter);
+            txtHotelName.addKeyListener(enterSubmitAdapter);
+            txtLocation.addKeyListener(enterSubmitAdapter);
+            txtRating.addKeyListener(enterSubmitAdapter);
+            txtHotelPrice.addKeyListener(enterSubmitAdapter);
         }
 
         JLabel lblSearch = new JLabel("Search Location:");
-        lblSearch.setBounds(10, isAdmin ? 85 : 10, 120, 25);
+        lblSearch.setBounds(isAdmin ? 420 : 10, isAdmin ? 48 : 12, 115, 25);
         add(lblSearch);
 
         txtSearchHotel = new JTextField();
-        txtSearchHotel.setBounds(130, isAdmin ? 85 : 10, 150, 25);
+        txtSearchHotel.setBounds(isAdmin ? 540 : 130, isAdmin ? 48 : 12, 180, 25);
         add(txtSearchHotel);
 
         txtSearchHotel.addKeyListener(new KeyAdapter() {
@@ -128,14 +144,23 @@ public class HotelPanel extends JPanel implements ActionListener {
             });
         }
         JScrollPane sp = new JScrollPane(tblHotels);
-        sp.setBounds(10, isAdmin ? 120 : 45, 875, isAdmin ? 425 : 500);
+        sp.setBounds(10, isAdmin ? 85 : 48, 985, isAdmin ? 495 : 535);
         add(sp);
 
         loadHotels();
     }
 
     /**
-     * Handles action events for adding and deleting hotels.
+     * Gets the number of hotels currently loaded in the table model.
+     *
+     * @return current hotel count
+     */
+    public int getHotelCount() {
+        return hotelModel != null ? hotelModel.getRowCount() : 0;
+    }
+
+    /**
+     * Handles action events for adding, updating, and deleting hotels.
      *
      * @param e the ActionEvent triggered
      */
@@ -144,13 +169,14 @@ public class HotelPanel extends JPanel implements ActionListener {
         if (e.getSource() == btnAdd) {
             try (Connection conn = DBConnection.getConnection();
                  PreparedStatement ps = conn.prepareStatement("INSERT INTO hotels VALUES(?, ?, ?, ?, ?)")) {
-                ps.setString(1, txtHotelId.getText());
-                ps.setString(2, txtHotelName.getText());
-                ps.setString(3, txtLocation.getText());
-                ps.setDouble(4, Double.parseDouble(txtRating.getText()));
-                ps.setDouble(5, Double.parseDouble(txtHotelPrice.getText()));
+                ps.setString(1, txtHotelId.getText().trim());
+                ps.setString(2, txtHotelName.getText().trim());
+                ps.setString(3, txtLocation.getText().trim());
+                ps.setDouble(4, Double.parseDouble(txtRating.getText().trim()));
+                ps.setDouble(5, Double.parseDouble(txtHotelPrice.getText().trim()));
                 ps.executeUpdate();
-                
+
+                // Clear all input textfields after adding
                 txtHotelId.setText("");
                 txtHotelName.setText("");
                 txtLocation.setText("");
@@ -195,6 +221,23 @@ public class HotelPanel extends JPanel implements ActionListener {
                 return;
             }
             String hotelId = tblHotels.getValueAt(selectedRow, 0).toString();
+            String name = tblHotels.getValueAt(selectedRow, 1).toString();
+            String loc = tblHotels.getValueAt(selectedRow, 2).toString();
+            String rating = tblHotels.getValueAt(selectedRow, 3).toString();
+            String price = tblHotels.getValueAt(selectedRow, 4).toString();
+
+            String confirmMsg = "Are you sure you want to permanently delete this hotel?\n\n"
+                    + "Hotel ID: " + hotelId + "\n"
+                    + "Name: " + name + "\n"
+                    + "Location: " + loc + "\n"
+                    + "Rating: " + rating + " Stars\n"
+                    + "Price/Night: $" + price;
+
+            int opt = JOptionPane.showConfirmDialog(this, confirmMsg, "Confirm Hotel Deletion", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (opt != JOptionPane.YES_OPTION) {
+                return;
+            }
+
             try (Connection conn = DBConnection.getConnection();
                  PreparedStatement ps = conn.prepareStatement("DELETE FROM hotels WHERE hotel_id = ?")) {
                 ps.setString(1, hotelId);
@@ -224,6 +267,10 @@ public class HotelPanel extends JPanel implements ActionListener {
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Error loading hotels: " + ex.getMessage());
         }
+
+        if (parentFrame != null) {
+            parentFrame.updateStatusBar();
+        }
     }
 
     /**
@@ -245,6 +292,10 @@ public class HotelPanel extends JPanel implements ActionListener {
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Search error: " + ex.getMessage());
+        }
+
+        if (parentFrame != null) {
+            parentFrame.updateStatusBar();
         }
     }
 }

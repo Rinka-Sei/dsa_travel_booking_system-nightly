@@ -91,6 +91,39 @@ public final class PasswordUtil {
     }
 
     /**
+     * Validates whether a candidate password conforms to security policy:
+     * <ul>
+     *   <li>At least 6 characters in length</li>
+     *   <li>Contains at least one numeric digit (0-9)</li>
+     *   <li>Is not identical to or an obvious substring of the username</li>
+     *   <li>Exception: 'admin' account with password 'admin123' is exempted for baseline seeding compatibility</li>
+     * </ul>
+     *
+     * @param username the username associated with the account
+     * @param password the candidate password to validate
+     * @return {@code null} if the password satisfies all criteria, or an error message explaining the failure
+     */
+    public static String validatePasswordStrength(String username, String password) {
+        if (username != null && username.equalsIgnoreCase("admin") && "admin123".equals(password)) {
+            return null; // Exempt admin seed credentials
+        }
+        if (password == null || password.length() < 6) {
+            return "Password must be at least 6 characters long.";
+        }
+        if (!password.matches(".*\\d.*")) {
+            return "Password must contain at least one numeric digit (0-9).";
+        }
+        if (username != null && !username.isBlank()) {
+            String u = username.trim().toLowerCase();
+            String p = password.trim().toLowerCase();
+            if (p.contains(u) || (u.length() >= 4 && u.contains(p))) {
+                return "Password cannot be similar to or contain your username.";
+            }
+        }
+        return null;
+    }
+
+    /**
      * Computes the raw SHA-256 hex digest for a given UTF-8 input string.
      *
      * @param input the string to hash

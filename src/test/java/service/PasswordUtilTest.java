@@ -76,4 +76,23 @@ public class PasswordUtilTest {
         assertThrows(IllegalArgumentException.class, () -> PasswordUtil.hashPassword(""));
         assertThrows(IllegalArgumentException.class, () -> PasswordUtil.hashPassword("   "));
     }
+
+    @Test
+    @DisplayName("validatePasswordStrength enforces minimum 6 chars, digit, and username dissimilarity with admin exception")
+    public void testPasswordStrengthPolicy() {
+        // Valid password
+        assertNull(PasswordUtil.validatePasswordStrength("alice", "Tokyo2026!"), "Valid password should pass");
+
+        // Too short (< 6 chars)
+        assertNotNull(PasswordUtil.validatePasswordStrength("alice", "abc1"), "Short password must be rejected");
+
+        // No numeric digit
+        assertNotNull(PasswordUtil.validatePasswordStrength("alice", "abcdefgh"), "Password without numbers must be rejected");
+
+        // Similar to username
+        assertNotNull(PasswordUtil.validatePasswordStrength("alice", "alice123"), "Password containing username must be rejected");
+
+        // Admin exception
+        assertNull(PasswordUtil.validatePasswordStrength("admin", "admin123"), "Admin seed credentials must be exempted");
+    }
 }

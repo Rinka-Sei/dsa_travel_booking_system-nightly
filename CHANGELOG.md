@@ -4,6 +4,21 @@ All notable changes, milestones, refactoring phases, and documentation updates f
 
 ---
 
+## [2026-11-08] - UI Modernization, Responsive Expansion, Brute-Force Throttling & Export Tooling
+
+### Added
+- **GUI Window Expansion & Layout Optimization:** Increased dashboard window dimensions to `1060 x 750` with an expanded tabbed pane (`1005 x 630`) and 2-row control layouts. Fully resolved button clipping (`[voice]` / `[Invoice]` cutoff) and cramped UI components across all tabs.
+- **Brute-Force Login Throttling (LoginFrame.java):** Added failed login attempt tracking. Upon 3 consecutive failures, the login button is disabled for 30 seconds with a real-time countdown timer (`Login (Xs)`) and security alert dialog.
+- **Registration Password Strength Policy (PasswordUtil.java, LoginFrame.java):** Enforced password policy requiring >= 6 characters, at least one numeric digit, and dissimilarity from username, while exempting baseline `admin`/`admin123` seed credentials.
+- **Enter-Key Quick Actions (LoginFrame.java, FlightPanel.java, HotelPanel.java):** Configured `getRootPane().setDefaultButton(btnLogin)` on login and Enter-key listener triggers on flight and hotel form fields with automatic textfield clearing (`""`) upon successful addition.
+- **Live Bottom Status Bar (MainFrame.java):** Integrated a persistent bottom status label (`Connected to travel_booking_db | <count> <tab entries>`) dynamically tracking active entity counts across Flights (BST), Hotels, Packages, Bookings, and History.
+- **Detailed Deletion Confirmation Dialogs (FlightPanel.java, HotelPanel.java, BookingPanel.java):** Added detailed `JOptionPane.showConfirmDialog` confirmations presenting full record parameters (ID, route, times, ratings, prices) before permanent removal.
+- **Invoice & Executive Report File Exports (BookingManagementService.java, BookingPanel.java, CustomerHistoryPanel.java):** Implemented zero-dependency printable invoice generation in both Markdown (`.md`) and CSV (`.csv`) formats, plus administrative system executive report CSV exports (`executive_report.csv`) saved directly to the user's Desktop.
+- **Search & Location Filters (BookingPanel.java, PackagePanel.java):** Added customer/flight ID filtering in Bookings and real-time destination/location filtering in Package Deals.
+- **Customer Travel History View (CustomerHistoryPanel.java):** Added a dedicated read-only tab for authenticated customer sessions displaying completed itineraries, total trip counts, and cumulative travel expenditure.
+- **Session Cache Wiping (MainFrame.java):** Explicitly nullified active session references upon logout to prevent memory-dump credential leakage.
+
+---
 ## [2026-11-08] - Salted SHA-256 Password Cryptography & Security Hardening
 
 ### Added

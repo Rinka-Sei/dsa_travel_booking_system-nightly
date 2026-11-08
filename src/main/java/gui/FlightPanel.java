@@ -16,7 +16,7 @@ import java.util.List;
 /**
  * Panel view for managing and searching flights.
  * Provides role-based administrative controls (Add/Remove Flight) with paired departure and arrival location/time inputs,
- * strict HH:mm 24-hour military time regex validation, and BST-sorted departure time rendering.
+ * strict HH:mm 24-hour military time regex validation, Enter-key submission triggers, deletion confirmation, and BST-sorted departure time rendering.
  */
 public class FlightPanel extends JPanel implements ActionListener {
 
@@ -43,86 +43,102 @@ public class FlightPanel extends JPanel implements ActionListener {
     public FlightPanel(MainFrame parent) {
         this.parentFrame = parent;
         setLayout(null);
-        setBounds(0, 0, 900, 580);
+        setBounds(0, 0, 1005, 595);
 
         boolean isAdmin = "ADMIN".equals(parent.getCurrentRole());
 
         if (isAdmin) {
             JLabel lblId = new JLabel("ID:");
-            lblId.setBounds(10, 10, 25, 25);
+            lblId.setBounds(10, 12, 25, 25);
             add(lblId);
 
             txtFlightId = new JTextField();
-            txtFlightId.setBounds(35, 10, 60, 25);
+            txtFlightId.setBounds(38, 12, 60, 25);
             add(txtFlightId);
 
             JLabel lblDep = new JLabel("Departure:");
-            lblDep.setBounds(100, 10, 70, 25);
+            lblDep.setBounds(105, 12, 70, 25);
             add(lblDep);
 
             txtDep = new JTextField();
-            txtDep.setBounds(170, 10, 85, 25);
+            txtDep.setBounds(178, 12, 90, 25);
             add(txtDep);
 
             JLabel lblDepTime = new JLabel("Dep Time:");
-            lblDepTime.setBounds(260, 10, 65, 25);
+            lblDepTime.setBounds(275, 12, 65, 25);
             add(lblDepTime);
 
             txtDepTime = new JTextField();
-            txtDepTime.setBounds(325, 10, 55, 25);
+            txtDepTime.setBounds(343, 12, 60, 25);
             add(txtDepTime);
 
             JLabel lblArr = new JLabel("Arrival:");
-            lblArr.setBounds(385, 10, 50, 25);
+            lblArr.setBounds(410, 12, 50, 25);
             add(lblArr);
 
             txtArr = new JTextField();
-            txtArr.setBounds(435, 10, 85, 25);
+            txtArr.setBounds(463, 12, 90, 25);
             add(txtArr);
 
             JLabel lblArrTime = new JLabel("Arr Time:");
-            lblArrTime.setBounds(525, 10, 60, 25);
+            lblArrTime.setBounds(560, 12, 60, 25);
             add(lblArrTime);
 
             txtArrTime = new JTextField();
-            txtArrTime.setBounds(585, 10, 55, 25);
+            txtArrTime.setBounds(623, 12, 60, 25);
             add(txtArrTime);
 
             JLabel lblPrice = new JLabel("Price:");
-            lblPrice.setBounds(645, 10, 40, 25);
+            lblPrice.setBounds(690, 12, 40, 25);
             add(lblPrice);
 
             txtFlightPrice = new JTextField();
-            txtFlightPrice.setBounds(685, 10, 80, 25);
+            txtFlightPrice.setBounds(733, 12, 70, 25);
             add(txtFlightPrice);
 
             btnAdd = new JButton("Add Flight");
-            btnAdd.setBounds(10, 45, 110, 25);
+            btnAdd.setBounds(10, 48, 110, 26);
             btnAdd.addActionListener(this);
             add(btnAdd);
 
             btnUpdate = new JButton("Update Selected");
-            btnUpdate.setBounds(125, 45, 135, 25);
+            btnUpdate.setBounds(128, 48, 130, 26);
             btnUpdate.addActionListener(this);
             add(btnUpdate);
 
             btnDelete = new JButton("Remove Selected");
-            btnDelete.setBounds(265, 45, 140, 25);
+            btnDelete.setBounds(266, 48, 135, 26);
             btnDelete.addActionListener(this);
             add(btnDelete);
+
+            // Enter-key trigger for quick addition from any form field
+            KeyAdapter enterSubmitAdapter = new KeyAdapter() {
+                @Override
+                public void keyPressed(KeyEvent e) {
+                    if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                        btnAdd.doClick();
+                    }
+                }
+            };
+            txtFlightId.addKeyListener(enterSubmitAdapter);
+            txtDep.addKeyListener(enterSubmitAdapter);
+            txtDepTime.addKeyListener(enterSubmitAdapter);
+            txtArr.addKeyListener(enterSubmitAdapter);
+            txtArrTime.addKeyListener(enterSubmitAdapter);
+            txtFlightPrice.addKeyListener(enterSubmitAdapter);
         }
 
         btnSortBST = new JButton("Reset & Sort (BST)");
-        btnSortBST.setBounds(isAdmin ? 720 : 310, isAdmin ? 45 : 10, 155, 25);
+        btnSortBST.setBounds(isAdmin ? 820 : 340, 12, 165, 26);
         btnSortBST.addActionListener(this);
         add(btnSortBST);
 
         JLabel lblSearch = new JLabel("Search Destination:");
-        lblSearch.setBounds(10, isAdmin ? 80 : 10, 130, 25);
+        lblSearch.setBounds(isAdmin ? 420 : 10, isAdmin ? 48 : 12, 130, 25);
         add(lblSearch);
 
         txtSearchFlight = new JTextField();
-        txtSearchFlight.setBounds(140, isAdmin ? 80 : 10, 150, 25);
+        txtSearchFlight.setBounds(isAdmin ? 555 : 145, isAdmin ? 48 : 12, 160, 25);
         add(txtSearchFlight);
 
         txtSearchFlight.addKeyListener(new KeyAdapter() {
@@ -148,10 +164,19 @@ public class FlightPanel extends JPanel implements ActionListener {
             });
         }
         JScrollPane sp = new JScrollPane(tblFlights);
-        sp.setBounds(10, isAdmin ? 115 : 45, 875, isAdmin ? 430 : 500);
+        sp.setBounds(10, isAdmin ? 85 : 48, 985, isAdmin ? 495 : 535);
         add(sp);
 
         loadFlightsBST();
+    }
+
+    /**
+     * Gets the number of flights currently loaded in the table model.
+     *
+     * @return current flight count
+     */
+    public int getFlightCount() {
+        return flightModel != null ? flightModel.getRowCount() : 0;
     }
 
     /**
@@ -184,7 +209,8 @@ public class FlightPanel extends JPanel implements ActionListener {
                 ps.setString(5, arrTimeInput);
                 ps.setDouble(6, Double.parseDouble(txtFlightPrice.getText().trim()));
                 ps.executeUpdate();
-                
+
+                // Clear all input textfields after adding
                 txtFlightId.setText("");
                 txtDep.setText("");
                 txtDepTime.setText("");
@@ -243,6 +269,22 @@ public class FlightPanel extends JPanel implements ActionListener {
                 return;
             }
             String flightId = tblFlights.getValueAt(selectedRow, 0).toString();
+            String dep = tblFlights.getValueAt(selectedRow, 1).toString();
+            String depTime = tblFlights.getValueAt(selectedRow, 2).toString();
+            String arr = tblFlights.getValueAt(selectedRow, 3).toString();
+            String arrTime = tblFlights.getValueAt(selectedRow, 4).toString();
+            String price = tblFlights.getValueAt(selectedRow, 5).toString();
+
+            String confirmMsg = "Are you sure you want to permanently delete this flight?\n\n"
+                    + "Flight ID: " + flightId + "\n"
+                    + "Route: " + dep + " (" + depTime + ") -> " + arr + " (" + arrTime + ")\n"
+                    + "Price: $" + price;
+
+            int opt = JOptionPane.showConfirmDialog(this, confirmMsg, "Confirm Flight Deletion", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (opt != JOptionPane.YES_OPTION) {
+                return;
+            }
+
             try (Connection conn = DBConnection.getConnection();
                  PreparedStatement ps = conn.prepareStatement("DELETE FROM flights WHERE flight_id = ?")) {
                 ps.setString(1, flightId);
@@ -326,6 +368,10 @@ public class FlightPanel extends JPanel implements ActionListener {
                     f.getPrice()
             });
         }
+
+        if (parentFrame != null) {
+            parentFrame.updateStatusBar();
+        }
     }
 
     /**
@@ -354,6 +400,10 @@ public class FlightPanel extends JPanel implements ActionListener {
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Search error: " + ex.getMessage());
+        }
+
+        if (parentFrame != null) {
+            parentFrame.updateStatusBar();
         }
     }
 }

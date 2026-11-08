@@ -9,6 +9,8 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.lang.reflect.Method;
 import java.sql.*;
 import java.util.ArrayList;
@@ -16,13 +18,15 @@ import java.util.List;
 
 /**
  * Panel view for browsing and booking dynamic flight-hotel package deals.
- * Features smart destination-matching filter and toggleable QuickSort buttons with directional arrow indicators.
+ * Features smart destination-matching filter, real-time location search, and toggleable QuickSort buttons with directional arrow indicators.
  */
 public class PackagePanel extends JPanel implements ActionListener {
 
     private JButton btnSortPrice;
     private JButton btnSortRating;
     private JButton btnBookPackage;
+    private JTextField txtSearchPackage;
+    private JButton btnResetFilter;
     private JTable tblPackages;
     private DefaultTableModel packageModel;
     private MainFrame parentFrame;
@@ -39,34 +43,62 @@ public class PackagePanel extends JPanel implements ActionListener {
     public PackagePanel(MainFrame parent) {
         this.parentFrame = parent;
         setLayout(null);
-        setBounds(0, 0, 900, 580);
+        setBounds(0, 0, 1005, 595);
 
-        btnSortPrice = new JButton("Sort Price (Ascending ↑)");
-        btnSortPrice.setBounds(10, 10, 200, 25);
+        btnSortPrice = new JButton("Sort Price (Ascending \u2191)");
+        btnSortPrice.setBounds(10, 12, 195, 26);
         btnSortPrice.addActionListener(this);
         add(btnSortPrice);
 
         btnSortRating = new JButton("Sort Rating");
-        btnSortRating.setBounds(220, 10, 200, 25);
+        btnSortRating.setBounds(213, 12, 195, 26);
         btnSortRating.addActionListener(this);
         add(btnSortRating);
 
         btnBookPackage = new JButton("Book Selected Package");
-        btnBookPackage.setBounds(430, 10, 200, 25);
+        btnBookPackage.setBounds(416, 12, 185, 26);
         btnBookPackage.addActionListener(this);
         add(btnBookPackage);
+
+        JLabel lblFilter = new JLabel("Filter Location:");
+        lblFilter.setBounds(610, 12, 95, 25);
+        add(lblFilter);
+
+        txtSearchPackage = new JTextField();
+        txtSearchPackage.setBounds(710, 12, 140, 25);
+        txtSearchPackage.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                refreshPackages();
+            }
+        });
+        add(txtSearchPackage);
+
+        btnResetFilter = new JButton("Reset");
+        btnResetFilter.setBounds(860, 12, 110, 26);
+        btnResetFilter.addActionListener(this);
+        add(btnResetFilter);
 
         packageModel = new DefaultTableModel(new String[]{"Flight ID", "Flight Price", "Hotel ID", "Hotel Name", "Rating", "Total Price"}, 0);
         tblPackages = new JTable(packageModel);
         JScrollPane sp = new JScrollPane(tblPackages);
-        sp.setBounds(10, 45, 875, 520);
+        sp.setBounds(10, 48, 985, 535);
         add(sp);
 
         loadPackagesQuickSort("PRICE", priceAscending);
     }
 
     /**
-     * Handles action events for price sorting, rating sorting, and package booking.
+     * Gets the number of packages currently loaded in the table model.
+     *
+     * @return current package count
+     */
+    public int getPackageCount() {
+        return packageModel != null ? packageModel.getRowCount() : 0;
+    }
+
+    /**
+     * Handles action events for price sorting, rating sorting, reset filtering, and package booking.
      * Toggles directional arrow indicators exclusively on the active sort button.
      *
      * @param e the ActionEvent triggered
@@ -80,7 +112,7 @@ public class PackagePanel extends JPanel implements ActionListener {
             } else {
                 priceAscending = !priceAscending;
             }
-            btnSortPrice.setText("Sort Price (" + (priceAscending ? "Ascending ↑" : "Descending ↓") + ")");
+            btnSortPrice.setText("Sort Price (" + (priceAscending ? "Ascending \u2191" : "Descending \u2193") + ")");
             btnSortRating.setText("Sort Rating");
             loadPackagesQuickSort("PRICE", priceAscending);
 
@@ -91,9 +123,13 @@ public class PackagePanel extends JPanel implements ActionListener {
             } else {
                 ratingAscending = !ratingAscending;
             }
-            btnSortRating.setText("Sort Rating (" + (ratingAscending ? "Ascending ↑" : "Descending ↓") + ")");
+            btnSortRating.setText("Sort Rating (" + (ratingAscending ? "Ascending \u2191" : "Descending \u2193") + ")");
             btnSortPrice.setText("Sort Price");
             loadPackagesQuickSort("RATING", ratingAscending);
+
+        } else if (e.getSource() == btnResetFilter) {
+            txtSearchPackage.setText("");
+            refreshPackages();
 
         } else if (e.getSource() == btnBookPackage) {
             bookSelectedPackage();
@@ -215,14 +251,31 @@ public class PackagePanel extends JPanel implements ActionListener {
     }
 
     /**
-     * Loads package deals and sorts them using {@code ds.PackageQuickSort} via reflection.
+     * Loads package deals, filters by destination search query, and sorts them using {@code ds.PackageQuickSort} via reflection.
      *
      * @param mode      the sorting criterion ("PRICE" or "RATING")
      * @param ascending {@code true} for ascending order, {@code false} for descending order
      */
     public void loadPackagesQuickSort(String mode, boolean ascending) {
         packageModel.setRowCount(0);
-        List<PackageDeal> packages = fetchAllPackages();
+        List<PackageDeal> allPackages = fetchAllPackages();
+
+        String filterQuery = txtSearchPackage != null ? txtSearchPackage.getText().trim().toLowerCase() : "";
+        List<PackageDeal> packages;
+        if (!filterQuery.isEmpty()) {
+            packages = new ArrayList<>();
+            for (PackageDeal pkg : allPackages) {
+                String arrival = pkg.getFlight().getArrival().toLowerCase();
+                String loc = pkg.getHotel().getLocation().toLowerCase();
+                String name = pkg.getHotel().getName().toLowerCase();
+                if (arrival.contains(filterQuery) || loc.contains(filterQuery) || name.contains(filterQuery)) {
+                    packages.add(pkg);
+                }
+            }
+        } else {
+            packages = allPackages;
+        }
+
         sortPackagesWithReflection(packages, mode, ascending);
 
         for (PackageDeal pkg : packages) {
@@ -234,6 +287,10 @@ public class PackagePanel extends JPanel implements ActionListener {
                     pkg.getHotelRating(),
                     pkg.getTotalPrice()
             });
+        }
+
+        if (parentFrame != null) {
+            parentFrame.updateStatusBar();
         }
     }
 }

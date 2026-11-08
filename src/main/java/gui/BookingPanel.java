@@ -2,103 +2,145 @@ package gui;
 
 import database.DBConnection;
 import model.PackageDeal;
+import service.BookingManagementService;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.io.File;
 import java.sql.*;
 
 /**
  * Panel view for managing customer bookings, itineraries, and printable invoices.
- * Supports booking creation with destination matching verification, cancellation, itinerary summaries, and invoice generation.
- * <p>
- * The administrative "Report" action is restricted to accounts whose current role is
- * {@code ADMIN}; non-admin sessions never see or trigger the report control. Role gating
- * follows the same {@code boolean isAdmin} pattern used in {@code FlightPanel}.
- * </p>
+ * Supports booking creation with destination matching verification, cancellation, itinerary summaries,
+ * search filtering, and invoice and executive report file exports (.md and .csv).
  */
 public class BookingPanel extends JPanel implements ActionListener {
 
     private JTextField txtBookFlightId;
     private JTextField txtBookHotelId;
+    private JTextField txtSearchBooking;
     private JButton btnBook;
     private JButton btnUpdate;
     private JButton btnItinerary;
     private JButton btnInvoice;
-    private JButton btnReport;
     private JButton btnCancel;
+    private JButton btnFilter;
+    private JButton btnResetFilter;
+    private JButton btnExportMd;
+    private JButton btnExportCsv;
+    private JButton btnReport;
+    private JButton btnExportReportCsv;
     private JTable tblBookings;
     private DefaultTableModel bookingModel;
     private MainFrame parent;
+    private final BookingManagementService bookingService = new BookingManagementService();
 
     /**
      * Constructs the BookingPanel view and initializes its controls and table.
-     * <p>
-     * The "Report" button is only created and added to the panel when the
-     * logged-in account has the {@code ADMIN} role, using the same
-     * {@code boolean isAdmin} gating pattern applied throughout the GUI layer.
-     * For all other roles the control is omitted entirely so the administrative
-     * report cannot be reached from the Bookings &amp; Itinerary tab.
-     * </p>
      *
      * @param parent the parent {@link MainFrame} dashboard container
      */
     public BookingPanel(MainFrame parent) {
         this.parent = parent;
         setLayout(null);
-        setBounds(0, 0, 900, 580);
+        setBounds(0, 0, 1005, 595);
 
         boolean isAdmin = "ADMIN".equals(parent.getCurrentRole());
 
+        // Row 1: Booking Management Operations
         JLabel lblFlightId = new JLabel("Flight ID:");
-        lblFlightId.setBounds(10, 10, 60, 25);
+        lblFlightId.setBounds(10, 12, 60, 25);
         add(lblFlightId);
 
         txtBookFlightId = new JTextField();
-        txtBookFlightId.setBounds(70, 10, 80, 25);
+        txtBookFlightId.setBounds(72, 12, 75, 25);
         add(txtBookFlightId);
 
         JLabel lblHotelId = new JLabel("Hotel ID:");
-        lblHotelId.setBounds(160, 10, 60, 25);
+        lblHotelId.setBounds(155, 12, 60, 25);
         add(lblHotelId);
 
         txtBookHotelId = new JTextField();
-        txtBookHotelId.setBounds(220, 10, 80, 25);
+        txtBookHotelId.setBounds(217, 12, 75, 25);
         add(txtBookHotelId);
 
         btnBook = new JButton("Book Package");
-        btnBook.setBounds(315, 10, 125, 25);
+        btnBook.setBounds(302, 12, 125, 26);
         btnBook.addActionListener(this);
         add(btnBook);
 
         btnUpdate = new JButton("Update Selected");
-        btnUpdate.setBounds(445, 10, 120, 25);
+        btnUpdate.setBounds(435, 12, 125, 26);
         btnUpdate.addActionListener(this);
         add(btnUpdate);
 
         btnItinerary = new JButton("View Itinerary");
-        btnItinerary.setBounds(575, 10, 120, 25);
+        btnItinerary.setBounds(568, 12, 120, 26);
         btnItinerary.addActionListener(this);
         add(btnItinerary);
 
-        btnInvoice = new JButton("Invoice");
-        btnInvoice.setBounds(705, 10, 75, 25);
+        btnInvoice = new JButton("Quick Invoice");
+        btnInvoice.setBounds(696, 12, 125, 26);
         btnInvoice.addActionListener(this);
         add(btnInvoice);
 
-        if (isAdmin) {
-            btnReport = new JButton("Report");
-            btnReport.setBounds(785, 10, 90, 25);
-            btnReport.addActionListener(this);
-            add(btnReport);
-        }
-
-        btnCancel = new JButton("Cancel");
-        btnCancel.setBounds(10, 45, 90, 25);
+        btnCancel = new JButton("Cancel Booking");
+        btnCancel.setBounds(830, 12, 130, 26);
         btnCancel.addActionListener(this);
         add(btnCancel);
 
+        // Row 2: Search, Invoices & Administrative Export Operations
+        JLabel lblSearch = new JLabel("Search Customer / Flight:");
+        lblSearch.setBounds(10, 48, 155, 25);
+        add(lblSearch);
+
+        txtSearchBooking = new JTextField();
+        txtSearchBooking.setBounds(168, 48, 120, 25);
+        txtSearchBooking.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                filterBookings(txtSearchBooking.getText().trim());
+            }
+        });
+        add(txtSearchBooking);
+
+        btnFilter = new JButton("Filter");
+        btnFilter.setBounds(295, 48, 70, 26);
+        btnFilter.addActionListener(this);
+        add(btnFilter);
+
+        btnResetFilter = new JButton("Reset");
+        btnResetFilter.setBounds(372, 48, 70, 26);
+        btnResetFilter.addActionListener(this);
+        add(btnResetFilter);
+
+        btnExportMd = new JButton("Export (.md)");
+        btnExportMd.setBounds(450, 48, 115, 26);
+        btnExportMd.addActionListener(this);
+        add(btnExportMd);
+
+        btnExportCsv = new JButton("Export (.csv)");
+        btnExportCsv.setBounds(572, 48, 115, 26);
+        btnExportCsv.addActionListener(this);
+        add(btnExportCsv);
+
+        if (isAdmin) {
+            btnReport = new JButton("System Report");
+            btnReport.setBounds(695, 48, 125, 26);
+            btnReport.addActionListener(this);
+            add(btnReport);
+
+            btnExportReportCsv = new JButton("Export Report (.csv)");
+            btnExportReportCsv.setBounds(828, 48, 155, 26);
+            btnExportReportCsv.addActionListener(this);
+            add(btnExportReportCsv);
+        }
+
+        // Table
         bookingModel = new DefaultTableModel(new String[]{"Booking ID", "Customer", "Flight ID", "Hotel ID", "Total Price"}, 0);
         tblBookings = new JTable(bookingModel);
         tblBookings.getSelectionModel().addListSelectionListener(event -> {
@@ -109,14 +151,23 @@ public class BookingPanel extends JPanel implements ActionListener {
             }
         });
         JScrollPane sp = new JScrollPane(tblBookings);
-        sp.setBounds(10, 75, 875, 490);
+        sp.setBounds(10, 85, 985, 495);
         add(sp);
 
         loadBookings();
     }
 
     /**
-     * Handles action events for booking creation, itinerary display, invoice generation, and cancellation.
+     * Gets the number of bookings currently loaded in the table model.
+     *
+     * @return current booking count
+     */
+    public int getBookingCount() {
+        return bookingModel != null ? bookingModel.getRowCount() : 0;
+    }
+
+    /**
+     * Handles action events for booking creation, itinerary display, invoice generation, exports, and cancellation.
      *
      * @param e the ActionEvent triggered
      */
@@ -130,10 +181,87 @@ public class BookingPanel extends JPanel implements ActionListener {
             generateItinerary();
         } else if (e.getSource() == btnInvoice) {
             generateInvoice();
+        } else if (e.getSource() == btnFilter) {
+            filterBookings(txtSearchBooking.getText().trim());
+        } else if (e.getSource() == btnResetFilter) {
+            txtSearchBooking.setText("");
+            loadBookings();
+        } else if (e.getSource() == btnExportMd) {
+            exportSelectedInvoice(true);
+        } else if (e.getSource() == btnExportCsv) {
+            exportSelectedInvoice(false);
         } else if (btnReport != null && e.getSource() == btnReport) {
             generateSystemReport();
+        } else if (btnExportReportCsv != null && e.getSource() == btnExportReportCsv) {
+            exportSystemReportCsv();
         } else if (e.getSource() == btnCancel) {
             cancelBooking();
+        }
+    }
+
+    /**
+     * Resolves the target directory on the user's Desktop or user home directory.
+     *
+     * @return file path to the output directory
+     */
+    private File getExportDirectory() {
+        File desktop = new File(System.getProperty("user.home"), "Desktop");
+        if (desktop.exists() && desktop.isDirectory()) {
+            return desktop;
+        }
+        return new File(System.getProperty("user.home"));
+    }
+
+    /**
+     * Exports an invoice for the currently selected booking to a file (.md or .csv).
+     *
+     * @param isMarkdown {@code true} for .md format, {@code false} for .csv format
+     */
+    private void exportSelectedInvoice(boolean isMarkdown) {
+        int selectedRow = tblBookings.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a booking from the table to export its invoice.", "Selection Required", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int bookingId = Integer.parseInt(bookingModel.getValueAt(selectedRow, 0).toString());
+        File outDir = getExportDirectory();
+        String filename = "invoice_" + bookingId + (isMarkdown ? ".md" : ".csv");
+        File targetFile = new File(outDir, filename);
+
+        try {
+            if (isMarkdown) {
+                bookingService.exportInvoiceMarkdown(bookingId, targetFile);
+            } else {
+                bookingService.exportInvoiceCsv(bookingId, targetFile);
+            }
+            JOptionPane.showMessageDialog(this,
+                    "Invoice exported successfully!\n\nFile: " + targetFile.getAbsolutePath(),
+                    "Export Successful",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Failed to export invoice: " + ex.getMessage(), "Export Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Exports the executive summary report to a CSV file on the desktop.
+     */
+    private void exportSystemReportCsv() {
+        if (!"ADMIN".equals(parent.getCurrentRole())) {
+            JOptionPane.showMessageDialog(this, "Access denied. Only administrators may export executive reports.", "Access Denied", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        File outDir = getExportDirectory();
+        File targetFile = new File(outDir, "executive_report.csv");
+        try {
+            bookingService.exportExecutiveReportCsv(targetFile);
+            JOptionPane.showMessageDialog(this,
+                    "Executive report exported successfully!\n\nFile: " + targetFile.getAbsolutePath(),
+                    "Report Exported",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Failed to export executive report: " + ex.getMessage(), "Export Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -238,6 +366,62 @@ public class BookingPanel extends JPanel implements ActionListener {
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Error loading bookings: " + ex.getMessage());
+        }
+
+        if (parent != null) {
+            parent.updateStatusBar();
+        }
+    }
+
+    /**
+     * Filters booking records by customer username or flight identifier.
+     *
+     * @param query the search substring
+     */
+    private void filterBookings(String query) {
+        if (query == null || query.isBlank()) {
+            loadBookings();
+            return;
+        }
+        bookingModel.setRowCount(0);
+        try (Connection conn = DBConnection.getConnection()) {
+            String role = parent.getCurrentRole();
+            String user = parent.getCurrentUser();
+            String pattern = "%" + query.trim().toLowerCase() + "%";
+
+            String sql;
+            if ("ADMIN".equals(role)) {
+                sql = "SELECT * FROM bookings WHERE LOWER(username) LIKE ? OR LOWER(IFNULL(flight_id, '')) LIKE ?";
+            } else {
+                sql = "SELECT * FROM bookings WHERE username = ? AND LOWER(IFNULL(flight_id, '')) LIKE ?";
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                if ("ADMIN".equals(role)) {
+                    ps.setString(1, pattern);
+                    ps.setString(2, pattern);
+                } else {
+                    ps.setString(1, user);
+                    ps.setString(2, pattern);
+                }
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        bookingModel.addRow(new Object[]{
+                                rs.getInt("booking_id"),
+                                rs.getString("username"),
+                                rs.getString("flight_id"),
+                                rs.getString("hotel_id"),
+                                rs.getDouble("total_price")
+                        });
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Search error: " + ex.getMessage());
+        }
+
+        if (parent != null) {
+            parent.updateStatusBar();
         }
     }
 
@@ -402,10 +586,6 @@ public class BookingPanel extends JPanel implements ActionListener {
 
     /**
      * Generates and displays an executive administrative activity and revenue report.
-     * <p>
-     * Defensive role re-check: even if the control were somehow reached by a
-     * non-admin session, the report is refused before touching the service layer.
-     * </p>
      */
     private void generateSystemReport() {
         if (!"ADMIN".equals(parent.getCurrentRole())) {
@@ -414,7 +594,6 @@ public class BookingPanel extends JPanel implements ActionListener {
             return;
         }
         try {
-            service.BookingManagementService bookingService = new service.BookingManagementService();
             String reportText = bookingService.generateSystemSummaryReport();
 
             JTextArea txtReport = new JTextArea(reportText);
@@ -440,8 +619,19 @@ public class BookingPanel extends JPanel implements ActionListener {
         }
 
         int bookingId = (int) bookingModel.getValueAt(selectedRow, 0);
+        String customer = bookingModel.getValueAt(selectedRow, 1).toString();
+        Object fId = bookingModel.getValueAt(selectedRow, 2);
+        Object hId = bookingModel.getValueAt(selectedRow, 3);
+        Object total = bookingModel.getValueAt(selectedRow, 4);
 
-        int choice = JOptionPane.showConfirmDialog(this, "Are you sure you want to cancel booking #" + bookingId + "?", "Confirm Cancellation", JOptionPane.YES_NO_OPTION);
+        String confirmMsg = "Are you sure you want to cancel this booking?\n\n"
+                + "Booking ID: " + bookingId + "\n"
+                + "Customer: " + customer + "\n"
+                + "Flight ID: " + (fId == null ? "None" : fId) + "\n"
+                + "Hotel ID: " + (hId == null ? "None" : hId) + "\n"
+                + "Total Price: $" + total;
+
+        int choice = JOptionPane.showConfirmDialog(this, confirmMsg, "Confirm Booking Cancellation", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (choice == JOptionPane.YES_OPTION) {
             try (Connection conn = DBConnection.getConnection();
                  PreparedStatement ps = conn.prepareStatement("DELETE FROM bookings WHERE booking_id = ?")) {
