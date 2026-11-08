@@ -51,10 +51,11 @@ The Agent must write the files to the workspace. This includes:
 - Updated `CHANGELOG.md` (following the structure in `docs_template_spec.md`).
 
 ### Step 3: Commit Changes
-The Agent must stage and commit the files using a standardized commit message.
-- **Commit Message Format:** `<type>(<scope>): <short description>`
-- **Example:** `feat(ds): implement MovieBST insert and search with unit tests`
-- **Example:** `feat(gui): add MoviePanel with Update Selected functionality and update docs`
+The Agent must stage and commit the files using a standardized commit message that **begins with a Gitmoji**, followed by the Conventional Commit type and scope.
+- **Commit Message Format:** `<gitmoji> <type>(<scope>): <short description>`
+- **Example:** `:sparkles: feat(ds): implement MovieBST insert and search with unit tests`
+- **Example:** `:construction_worker: feat(gui): add MoviePanel with Update Selected functionality and update docs`
+- **Example:** `:bug: fix(gui): unify invoice and itinerary dialogs with inline export buttons`
 
 ### Step 4: Push to Remote
 The Agent must push the new branch to the remote GitHub repository.
@@ -62,7 +63,7 @@ The Agent must push the new branch to the remote GitHub repository.
 
 ### Step 5: Create a Pull Request (PR)
 The Agent must create a Pull Request against the `main` branch, detailing the changes.
-- **PR Title:** Matches the primary feature/fix.
+- **PR Title:** Matches the primary feature/fix (Gitmoji prefix recommended but optional on PR titles).
 - **PR Body:** Must include:
     - Summary of changes.
     - List of files created/modified (including build config, tests, and docs).
@@ -76,7 +77,7 @@ If the Agent is operating via terminal, it should execute the following sequence
 
     # 2. Adding and committing (assuming files are written)
     git add .
-    git commit -m "feat(scope): implement feature details, unit tests, build config, and update docs"
+    git commit -m "<gitmoji> <type>(<scope>): implement feature details, unit tests, build config, and update docs"
 
     # 3. Pushing
     git push -u origin feature/feature-name

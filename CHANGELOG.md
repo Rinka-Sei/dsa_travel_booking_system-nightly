@@ -4,6 +4,25 @@ All notable changes, milestones, refactoring phases, and documentation updates f
 
 ---
 
+## [2026-11-08] - Unified Invoice/Itinerary UX, Inline Report Exports & Toolbar Declutter (Nightly Fix)
+
+### Added
+- **`BookingPanel.java` — Inline Report Exports:** Embedded `Export (.md)` and `Export (.csv)` buttons directly inside the `System Report` dialog, eliminating the need for a separate toolbar export control.
+- **`BookingPanel.java` / `CustomerHistoryPanel.java` — Inline Invoice Exports:** Added .md and .csv export buttons inside the unified `View Details` dialog so users can export directly from the itinerary/invoice preview.
+
+### Changed
+- **`BookingPanel.java` — System Report Dialog Refactor (`JOptionPane` → Custom `JDialog`):** Replaced `JOptionPane.showMessageDialog(reportPanel, ...)` in `generateSystemReport()` with a custom modal `JDialog` using `setLayout(null)` + `setBounds`. The dialog now exposes an explicit `dlgOk` button anchored to the **bottom-right corner** of the pane (`465, 375, 105, 30` inside a `600 x 460` dialog) instead of relying on `JOptionPane`'s internally-positioned OK button, extending the blueprint §8 absolute-layout compliance to nested sub-dialogs.
+- **`BookingPanel.java` — Unified Details View:** Refactored `generateItinerary()` and `generateInvoice()` into a single `showUnifiedItineraryInvoice()` method and merged the `btnItinerary` / `btnInvoice` actions into a single `View Details` (`btnViewDetails`) button.
+- **`BookingPanel.java` — Toolbar Declutter:** Removed the standalone `btnExportMd` and `btnExportCsv` toolbar buttons; reflowed `btnReport` from `x=695` to `x=450` so remaining controls occupy the freed space without gaps.
+- **`BookingPanel.java` — Cancel Button Relocation:** Moved `btnCancel` from the top toolbar (Row 1) to the bottom-right corner of the panel (`830, 552`, `165 x 30`) to reduce top-row clutter and separate destructive actions from creation/update actions.
+- **`CustomerHistoryPanel.java` — Unified Details View:** Replaced separate export actions with a single `View Details` button that opens the itinerary/invoice modal (also a custom `JDialog` with `setLayout(null)`) with embedded .md/.csv export buttons and a bottom-right OK button.
+
+### Fixed
+- **Nightly Build UI Clutter:** Resolved the button-crowding issue in the `Bookings & Itinerary` and `My Travel History` tabs where invoice and itinerary buttons were overlapping and truncating labels.
+- **Inconsistent Nested-Dialog Layout:** The System Report sub-dialog previously relied on `JOptionPane`'s internal layout for its OK button, which violated the project's `setLayout(null)` rule inside nested dialogs. Now all nested dialogs use fully manual `setBounds` placement.
+
+---
+
 ## [2026-11-08] - UI Modernization, Responsive Expansion, Brute-Force Throttling & Export Tooling
 
 ### Added
@@ -19,6 +38,7 @@ All notable changes, milestones, refactoring phases, and documentation updates f
 - **Session Cache Wiping (MainFrame.java):** Explicitly nullified active session references upon logout to prevent memory-dump credential leakage.
 
 ---
+
 ## [2026-11-08] - Salted SHA-256 Password Cryptography & Security Hardening
 
 ### Added

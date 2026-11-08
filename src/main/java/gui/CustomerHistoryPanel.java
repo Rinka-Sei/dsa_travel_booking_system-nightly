@@ -17,14 +17,17 @@ import java.sql.SQLException;
 /**
  * Read-only panel view displaying the authenticated customer's previous completed bookings
  * and cumulative travel expenditure summary.
+ * <p>
+ * <b>Nightly build update:</b> Itinerary and invoice views merged into one
+ * {@code View Details} action with inline .md/.csv export buttons inside the
+ * same dialog. Standalone export buttons moved off the toolbar to reduce clutter.
  */
 public class CustomerHistoryPanel extends JPanel implements ActionListener {
 
     private JLabel lblHeader;
     private JLabel lblSummary;
     private JButton btnRefresh;
-    private JButton btnExportMd;
-    private JButton btnExportCsv;
+    private JButton btnViewDetails;
     private JTable tblHistory;
     private DefaultTableModel historyModel;
     private MainFrame parent;
@@ -54,15 +57,10 @@ public class CustomerHistoryPanel extends JPanel implements ActionListener {
         btnRefresh.addActionListener(this);
         add(btnRefresh);
 
-        btnExportMd = new JButton("Export Invoice (.md)");
-        btnExportMd.setBounds(785, 12, 145, 26);
-        btnExportMd.addActionListener(this);
-        add(btnExportMd);
-
-        btnExportCsv = new JButton("Export (.csv)");
-        btnExportCsv.setBounds(935, 12, 110, 26);
-        btnExportCsv.addActionListener(this);
-        add(btnExportCsv);
+        btnViewDetails = new JButton("View Details");
+        btnViewDetails.setBounds(785, 12, 145, 26);
+        btnViewDetails.addActionListener(this);
+        add(btnViewDetails);
 
         historyModel = new DefaultTableModel(new String[]{"Booking ID", "Flight ID", "Flight Route", "Hotel ID", "Hotel Name", "Total Paid"}, 0);
         tblHistory = new JTable(historyModel);
@@ -149,7 +147,7 @@ public class CustomerHistoryPanel extends JPanel implements ActionListener {
     }
 
     /**
-     * Handles refresh and invoice export button clicks.
+     * Handles refresh and details dialog interactions.
      *
      * @param e ActionEvent triggered
      */
@@ -157,31 +155,101 @@ public class CustomerHistoryPanel extends JPanel implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == btnRefresh) {
             loadHistory();
-        } else if (e.getSource() == btnExportMd || e.getSource() == btnExportCsv) {
-            int selectedRow = tblHistory.getSelectedRow();
-            if (selectedRow == -1) {
-                JOptionPane.showMessageDialog(this, "Please select a booking from your history to export its invoice.", "Selection Required", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            int bookingId = Integer.parseInt(historyModel.getValueAt(selectedRow, 0).toString());
-            boolean isMd = (e.getSource() == btnExportMd);
+        } else if (e.getSource() == btnViewDetails) {
+            showUnifiedItineraryInvoice();
+        }
+    }
+
+    /**
+     * Unified action: displays both itinerary and invoice for the selected history row
+     * inside a single modal dialog that embeds .md/.csv export buttons.
+     */
+    private void showUnifiedItineraryInvoice() {
+        int selectedRow = tblHistory.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a booking from your history to view its details.",
+                    "Selection Required", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int bookingId = Integer.parseInt(historyModel.getValueAt(selectedRow, 0).toString());
+        Object fId = historyModel.getValueAt(selectedRow, 1);
+        Object fRoute = historyModel.getValueAt(selectedRow, 2);
+        Object hId = historyModel.getValueAt(selectedRow, 3);
+        Object hName = historyModel.getValueAt(selectedRow, 4);
+        Object paid = historyModel.getValueAt(selectedRow, 5);
+
+        StringBuilder content = new StringBuilder();
+        content.append("=== TRAVEL ITINERARY & INVOICE ===\n");
+        content.append("Booking ID: ").append(bookingId).append("\n");
+        content.append("Customer: ").append(parent.getCurrentUser()).append("\n\n");
+        content.append("[FLIGHT DETAILS]\n");
+        content.append("Flight ID: ").append(fId).append("\n");
+        content.append("Route: ").append(fRoute).append("\n\n");
+        content.append("[HOTEL DETAILS]\n");
+        content.append("Hotel ID: ").append(hId).append("\n");
+        content.append("Hotel Name: ").append(hName).append("\n\n");
+        content.append("------------------------------------\n");
+        content.append("TOTAL PAID: ").append(paid).append("\n");
+        content.append("====================================");
+
+        JDialog dialog = new JDialog((java.awt.Frame) SwingUtilities.getWindowAncestor(this),
+                "Itinerary & Invoice", true);
+        dialog.setLayout(null);
+        dialog.setSize(640, 460);
+        dialog.setLocationRelativeTo(this);
+
+        JTextArea area = new JTextArea(content.toString());
+        area.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        area.setEditable(false);
+        JScrollPane scroll = new JScrollPane(area);
+        scroll.setBounds(10, 10, 610, 350);
+        dialog.add(scroll);
+
+        JButton dlgExportMd = new JButton("Export (.md)");
+        dlgExportMd.setBounds(10, 375, 145, 30);
+        dialog.add(dlgExportMd);
+
+        JButton dlgExportCsv = new JButton("Export (.csv)");
+        dlgExportCsv.setBounds(165, 375, 145, 30);
+        dialog.add(dlgExportCsv);
+
+        JButton dlgOk = new JButton("OK");
+        dlgOk.setBounds(520, 375, 100, 30);
+        dialog.add(dlgOk);
+
+        dlgExportMd.addActionListener(ev -> {
             File desktop = new File(System.getProperty("user.home"), "Desktop");
             File outDir = (desktop.exists() && desktop.isDirectory()) ? desktop : new File(System.getProperty("user.home"));
-            File targetFile = new File(outDir, "invoice_" + bookingId + (isMd ? ".md" : ".csv"));
-
+            File targetFile = new File(outDir, "invoice_" + bookingId + ".md");
             try {
-                if (isMd) {
-                    bookingService.exportInvoiceMarkdown(bookingId, targetFile);
-                } else {
-                    bookingService.exportInvoiceCsv(bookingId, targetFile);
-                }
-                JOptionPane.showMessageDialog(this,
+                bookingService.exportInvoiceMarkdown(bookingId, targetFile);
+                JOptionPane.showMessageDialog(dialog,
                         "Invoice exported successfully!\n\nFile: " + targetFile.getAbsolutePath(),
-                        "Export Successful",
-                        JOptionPane.INFORMATION_MESSAGE);
+                        "Export Successful", JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Failed to export invoice: " + ex.getMessage(), "Export Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog,
+                        "Failed to export invoice: " + ex.getMessage(),
+                        "Export Error", JOptionPane.ERROR_MESSAGE);
             }
-        }
+        });
+        dlgExportCsv.addActionListener(ev -> {
+            File desktop = new File(System.getProperty("user.home"), "Desktop");
+            File outDir = (desktop.exists() && desktop.isDirectory()) ? desktop : new File(System.getProperty("user.home"));
+            File targetFile = new File(outDir, "invoice_" + bookingId + ".csv");
+            try {
+                bookingService.exportInvoiceCsv(bookingId, targetFile);
+                JOptionPane.showMessageDialog(dialog,
+                        "Invoice exported successfully!\n\nFile: " + targetFile.getAbsolutePath(),
+                        "Export Successful", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog,
+                        "Failed to export invoice: " + ex.getMessage(),
+                        "Export Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        dlgOk.addActionListener(ev -> dialog.dispose());
+
+        dialog.setVisible(true);
     }
 }

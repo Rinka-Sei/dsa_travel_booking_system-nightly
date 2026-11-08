@@ -17,6 +17,11 @@ import java.sql.*;
  * Panel view for managing customer bookings, itineraries, and printable invoices.
  * Supports booking creation with destination matching verification, cancellation, itinerary summaries,
  * search filtering, and invoice and executive report file exports (.md and .csv).
+ * <p>
+ * <b>Nightly build update:</b> Itinerary + Invoice unified into a single view with inline
+ * export buttons; admin report dialog embeds .md/.csv export actions; cancel button moved
+ * to the bottom-right corner; standalone toolbar invoice-export buttons removed (exports
+ * now live inside the {@code View Details} dialog).
  */
 public class BookingPanel extends JPanel implements ActionListener {
 
@@ -25,15 +30,11 @@ public class BookingPanel extends JPanel implements ActionListener {
     private JTextField txtSearchBooking;
     private JButton btnBook;
     private JButton btnUpdate;
-    private JButton btnItinerary;
-    private JButton btnInvoice;
+    private JButton btnViewDetails;
     private JButton btnCancel;
     private JButton btnFilter;
     private JButton btnResetFilter;
-    private JButton btnExportMd;
-    private JButton btnExportCsv;
     private JButton btnReport;
-    private JButton btnExportReportCsv;
     private JTable tblBookings;
     private DefaultTableModel bookingModel;
     private MainFrame parent;
@@ -78,22 +79,13 @@ public class BookingPanel extends JPanel implements ActionListener {
         btnUpdate.addActionListener(this);
         add(btnUpdate);
 
-        btnItinerary = new JButton("View Itinerary");
-        btnItinerary.setBounds(568, 12, 120, 26);
-        btnItinerary.addActionListener(this);
-        add(btnItinerary);
+        // Unified Itinerary + Invoice button
+        btnViewDetails = new JButton("View Details");
+        btnViewDetails.setBounds(568, 12, 120, 26);
+        btnViewDetails.addActionListener(this);
+        add(btnViewDetails);
 
-        btnInvoice = new JButton("Quick Invoice");
-        btnInvoice.setBounds(696, 12, 125, 26);
-        btnInvoice.addActionListener(this);
-        add(btnInvoice);
-
-        btnCancel = new JButton("Cancel Booking");
-        btnCancel.setBounds(830, 12, 130, 26);
-        btnCancel.addActionListener(this);
-        add(btnCancel);
-
-        // Row 2: Search, Invoices & Administrative Export Operations
+        // Row 2: Search & Administrative Report Operations
         JLabel lblSearch = new JLabel("Search Customer / Flight:");
         lblSearch.setBounds(10, 48, 155, 25);
         add(lblSearch);
@@ -118,26 +110,11 @@ public class BookingPanel extends JPanel implements ActionListener {
         btnResetFilter.addActionListener(this);
         add(btnResetFilter);
 
-        btnExportMd = new JButton("Export (.md)");
-        btnExportMd.setBounds(450, 48, 115, 26);
-        btnExportMd.addActionListener(this);
-        add(btnExportMd);
-
-        btnExportCsv = new JButton("Export (.csv)");
-        btnExportCsv.setBounds(572, 48, 115, 26);
-        btnExportCsv.addActionListener(this);
-        add(btnExportCsv);
-
         if (isAdmin) {
             btnReport = new JButton("System Report");
-            btnReport.setBounds(695, 48, 125, 26);
+            btnReport.setBounds(450, 48, 125, 26);
             btnReport.addActionListener(this);
             add(btnReport);
-
-            btnExportReportCsv = new JButton("Export Report (.csv)");
-            btnExportReportCsv.setBounds(828, 48, 155, 26);
-            btnExportReportCsv.addActionListener(this);
-            add(btnExportReportCsv);
         }
 
         // Table
@@ -151,8 +128,14 @@ public class BookingPanel extends JPanel implements ActionListener {
             }
         });
         JScrollPane sp = new JScrollPane(tblBookings);
-        sp.setBounds(10, 85, 985, 495);
+        sp.setBounds(10, 85, 985, 460);
         add(sp);
+
+        // Cancel button — bottom-right corner of the panel
+        btnCancel = new JButton("Cancel Booking");
+        btnCancel.setBounds(830, 552, 165, 30);
+        btnCancel.addActionListener(this);
+        add(btnCancel);
 
         loadBookings();
     }
@@ -167,7 +150,7 @@ public class BookingPanel extends JPanel implements ActionListener {
     }
 
     /**
-     * Handles action events for booking creation, itinerary display, invoice generation, exports, and cancellation.
+     * Handles action events for booking creation, details display, and cancellation.
      *
      * @param e the ActionEvent triggered
      */
@@ -177,23 +160,15 @@ public class BookingPanel extends JPanel implements ActionListener {
             performBooking();
         } else if (e.getSource() == btnUpdate) {
             updateSelectedBooking();
-        } else if (e.getSource() == btnItinerary) {
-            generateItinerary();
-        } else if (e.getSource() == btnInvoice) {
-            generateInvoice();
+        } else if (e.getSource() == btnViewDetails) {
+            showUnifiedItineraryInvoice();
         } else if (e.getSource() == btnFilter) {
             filterBookings(txtSearchBooking.getText().trim());
         } else if (e.getSource() == btnResetFilter) {
             txtSearchBooking.setText("");
             loadBookings();
-        } else if (e.getSource() == btnExportMd) {
-            exportSelectedInvoice(true);
-        } else if (e.getSource() == btnExportCsv) {
-            exportSelectedInvoice(false);
         } else if (btnReport != null && e.getSource() == btnReport) {
             generateSystemReport();
-        } else if (btnExportReportCsv != null && e.getSource() == btnExportReportCsv) {
-            exportSystemReportCsv();
         } else if (e.getSource() == btnCancel) {
             cancelBooking();
         }
@@ -210,59 +185,6 @@ public class BookingPanel extends JPanel implements ActionListener {
             return desktop;
         }
         return new File(System.getProperty("user.home"));
-    }
-
-    /**
-     * Exports an invoice for the currently selected booking to a file (.md or .csv).
-     *
-     * @param isMarkdown {@code true} for .md format, {@code false} for .csv format
-     */
-    private void exportSelectedInvoice(boolean isMarkdown) {
-        int selectedRow = tblBookings.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a booking from the table to export its invoice.", "Selection Required", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int bookingId = Integer.parseInt(bookingModel.getValueAt(selectedRow, 0).toString());
-        File outDir = getExportDirectory();
-        String filename = "invoice_" + bookingId + (isMarkdown ? ".md" : ".csv");
-        File targetFile = new File(outDir, filename);
-
-        try {
-            if (isMarkdown) {
-                bookingService.exportInvoiceMarkdown(bookingId, targetFile);
-            } else {
-                bookingService.exportInvoiceCsv(bookingId, targetFile);
-            }
-            JOptionPane.showMessageDialog(this,
-                    "Invoice exported successfully!\n\nFile: " + targetFile.getAbsolutePath(),
-                    "Export Successful",
-                    JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Failed to export invoice: " + ex.getMessage(), "Export Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    /**
-     * Exports the executive summary report to a CSV file on the desktop.
-     */
-    private void exportSystemReportCsv() {
-        if (!"ADMIN".equals(parent.getCurrentRole())) {
-            JOptionPane.showMessageDialog(this, "Access denied. Only administrators may export executive reports.", "Access Denied", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        File outDir = getExportDirectory();
-        File targetFile = new File(outDir, "executive_report.csv");
-        try {
-            bookingService.exportExecutiveReportCsv(targetFile);
-            JOptionPane.showMessageDialog(this,
-                    "Executive report exported successfully!\n\nFile: " + targetFile.getAbsolutePath(),
-                    "Report Exported",
-                    JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Failed to export executive report: " + ex.getMessage(), "Export Error", JOptionPane.ERROR_MESSAGE);
-        }
     }
 
     /**
@@ -502,21 +424,29 @@ public class BookingPanel extends JPanel implements ActionListener {
     }
 
     /**
-     * Generates and displays a detailed travel itinerary for the selected booking entry.
+     * Unified action that produces both the travel itinerary and invoice in one
+     * dialog and offers inline .md/.csv export buttons within the same prompt.
+     * Refactored from the separate {@code generateItinerary()} and
+     * {@code generateInvoice()} methods to reduce GUI clutter.
      */
-    private void generateItinerary() {
+    private void showUnifiedItineraryInvoice() {
         int selectedRow = tblBookings.getSelectedRow();
         if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a booking from the table to view its itinerary.");
+            JOptionPane.showMessageDialog(this, "Please select a booking from the table to view its details.");
             return;
         }
 
+        int bookingId = Integer.parseInt(bookingModel.getValueAt(selectedRow, 0).toString());
         Object bId = bookingModel.getValueAt(selectedRow, 0);
+        Object user = bookingModel.getValueAt(selectedRow, 1);
         Object fId = bookingModel.getValueAt(selectedRow, 2);
         Object hId = bookingModel.getValueAt(selectedRow, 3);
+        Object total = bookingModel.getValueAt(selectedRow, 4);
 
-        StringBuilder itinerary = new StringBuilder("=== TRAVEL ITINERARY ===\n");
-        itinerary.append("Booking ID: ").append(bId).append("\n\n");
+        StringBuilder content = new StringBuilder();
+        content.append("=== TRAVEL ITINERARY & INVOICE ===\n");
+        content.append("Booking ID: ").append(bId).append("\n");
+        content.append("Customer: ").append(user).append("\n\n");
 
         try (Connection conn = DBConnection.getConnection()) {
             if (fId != null) {
@@ -524,13 +454,14 @@ public class BookingPanel extends JPanel implements ActionListener {
                 psF.setString(1, fId.toString());
                 ResultSet rsF = psF.executeQuery();
                 if (rsF.next()) {
-                    itinerary.append("[FLIGHT DETAILS]\n")
+                    content.append("[FLIGHT DETAILS]\n")
                             .append("Flight ID: ").append(rsF.getString("flight_id")).append("\n")
                             .append("From: ").append(rsF.getString("departure")).append(" (").append(rsF.getString("departure_time")).append(" HRS)\n")
-                            .append("To: ").append(rsF.getString("arrival")).append(" (").append(rsF.getString("arrival_time")).append(" HRS)\n\n");
+                            .append("To: ").append(rsF.getString("arrival")).append(" (").append(rsF.getString("arrival_time")).append(" HRS)\n")
+                            .append("Price: $").append(String.format("%.2f", rsF.getDouble("price"))).append("\n\n");
                 }
             } else {
-                itinerary.append("[FLIGHT DETAILS]: No flight booked.\n\n");
+                content.append("[FLIGHT DETAILS]: No flight booked.\n\n");
             }
 
             if (hId != null) {
@@ -538,54 +469,90 @@ public class BookingPanel extends JPanel implements ActionListener {
                 psH.setString(1, hId.toString());
                 ResultSet rsH = psH.executeQuery();
                 if (rsH.next()) {
-                    itinerary.append("[HOTEL DETAILS]\n")
+                    content.append("[HOTEL DETAILS]\n")
                             .append("Hotel: ").append(rsH.getString("name")).append("\n")
                             .append("Location: ").append(rsH.getString("location")).append("\n")
-                            .append("Rating: ").append(rsH.getDouble("rating")).append(" Stars\n\n");
+                            .append("Rating: ").append(rsH.getDouble("rating")).append(" Stars\n")
+                            .append("Price/Night: $").append(String.format("%.2f", rsH.getDouble("price_per_night"))).append("\n\n");
                 }
             } else {
-                itinerary.append("[HOTEL DETAILS]: No hotel booked.\n\n");
+                content.append("[HOTEL DETAILS]: No hotel booked.\n\n");
             }
 
-            JOptionPane.showMessageDialog(this, itinerary.toString(), "Itinerary Summary", JOptionPane.INFORMATION_MESSAGE);
+            content.append("------------------------------------\n");
+            content.append("TOTAL AMOUNT: $").append(total).append("\n");
+            content.append("====================================");
+
+            // Build custom dialog so we can add inline .md/.csv export buttons
+            final JDialog dialog = new JDialog((java.awt.Frame) SwingUtilities.getWindowAncestor(this),
+                    "Itinerary & Invoice", true);
+            dialog.setLayout(null);
+            dialog.setSize(640, 460);
+            dialog.setLocationRelativeTo(this);
+
+            JTextArea area = new JTextArea(content.toString());
+            area.setFont(new java.awt.Font("Monospaced", java.awt.Font.PLAIN, 12));
+            area.setEditable(false);
+            JScrollPane scroll = new JScrollPane(area);
+            scroll.setBounds(10, 10, 610, 350);
+            dialog.add(scroll);
+
+            JButton dlgExportMd = new JButton("Export (.md)");
+            dlgExportMd.setBounds(10, 375, 145, 30);
+            dialog.add(dlgExportMd);
+
+            JButton dlgExportCsv = new JButton("Export (.csv)");
+            dlgExportCsv.setBounds(165, 375, 145, 30);
+            dialog.add(dlgExportCsv);
+
+            JButton dlgOk = new JButton("OK");
+            dlgOk.setBounds(520, 375, 100, 30);
+            dialog.add(dlgOk);
+
+            final int finalBookingId = bookingId;
+            dlgExportMd.addActionListener(ev -> {
+                File outDir = getExportDirectory();
+                File targetFile = new File(outDir, "invoice_" + finalBookingId + ".md");
+                try {
+                    bookingService.exportInvoiceMarkdown(finalBookingId, targetFile);
+                    JOptionPane.showMessageDialog(dialog,
+                            "Invoice exported successfully!\n\nFile: " + targetFile.getAbsolutePath(),
+                            "Export Successful", JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(dialog,
+                            "Failed to export invoice: " + ex.getMessage(),
+                            "Export Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+            dlgExportCsv.addActionListener(ev -> {
+                File outDir = getExportDirectory();
+                File targetFile = new File(outDir, "invoice_" + finalBookingId + ".csv");
+                try {
+                    bookingService.exportInvoiceCsv(finalBookingId, targetFile);
+                    JOptionPane.showMessageDialog(dialog,
+                            "Invoice exported successfully!\n\nFile: " + targetFile.getAbsolutePath(),
+                            "Export Successful", JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(dialog,
+                            "Failed to export invoice: " + ex.getMessage(),
+                            "Export Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+            dlgOk.addActionListener(ev -> dialog.dispose());
+
+            dialog.setVisible(true);
 
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Error building itinerary: " + ex.getMessage());
         }
     }
 
-    /**
-     * Generates and displays a text invoice dialog for the selected booking entry.
-     */
-    private void generateInvoice() {
-        int selectedRow = tblBookings.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a booking from the table.");
-            return;
-        }
-
-        Object bId = bookingModel.getValueAt(selectedRow, 0);
-        Object user = bookingModel.getValueAt(selectedRow, 1);
-        Object fId = bookingModel.getValueAt(selectedRow, 2);
-        Object hId = bookingModel.getValueAt(selectedRow, 3);
-        Object total = bookingModel.getValueAt(selectedRow, 4);
-
-        String invoice = "====================================\n"
-                + "          TRAVEL INVOICE            \n"
-                + "====================================\n"
-                + "Booking ID: " + bId + "\n"
-                + "Customer: " + user + "\n"
-                + "Flight Booked: " + (fId == null ? "None" : fId) + "\n"
-                + "Hotel Booked: " + (hId == null ? "None" : hId) + "\n"
-                + "------------------------------------\n"
-                + "TOTAL AMOUNT: $" + total + "\n"
-                + "====================================";
-
-        JOptionPane.showMessageDialog(this, invoice, "Invoice Details", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    /**
+        /**
      * Generates and displays an executive administrative activity and revenue report.
+     * The dialog embeds .md and .csv export buttons on the bottom-left and a custom
+     * OK button on the bottom-right corner of the panel (replacing the default
+     * {@link JOptionPane} OK button so the layout remains fully absolute-positioned
+     * and compliant with {@code setLayout(null)} rules).
      */
     private void generateSystemReport() {
         if (!"ADMIN".equals(parent.getCurrentRole())) {
@@ -596,18 +563,71 @@ public class BookingPanel extends JPanel implements ActionListener {
         try {
             String reportText = bookingService.generateSystemSummaryReport();
 
+            // Build a custom dialog so we control the OK button placement
+            final JDialog dialog = new JDialog((java.awt.Frame) SwingUtilities.getWindowAncestor(this),
+                    "System Activity & Revenue Report", true);
+            dialog.setLayout(null);
+            dialog.setSize(600, 460);
+            dialog.setLocationRelativeTo(this);
+
             JTextArea txtReport = new JTextArea(reportText);
             txtReport.setFont(new java.awt.Font("Monospaced", java.awt.Font.PLAIN, 12));
             txtReport.setEditable(false);
             JScrollPane scrollPane = new JScrollPane(txtReport);
-            scrollPane.setPreferredSize(new java.awt.Dimension(500, 350));
+            scrollPane.setBounds(10, 10, 560, 350);
+            dialog.add(scrollPane);
 
-            JOptionPane.showMessageDialog(this, scrollPane, "System Activity & Revenue Report", JOptionPane.INFORMATION_MESSAGE);
+            JButton dlgReportMd = new JButton("Export (.md)");
+            dlgReportMd.setBounds(10, 375, 145, 30);
+            dialog.add(dlgReportMd);
+
+            JButton dlgReportCsv = new JButton("Export (.csv)");
+            dlgReportCsv.setBounds(165, 375, 145, 30);
+            dialog.add(dlgReportCsv);
+
+            // OK button — bottom-right corner of the dialog pane
+            JButton dlgOk = new JButton("OK");
+            dlgOk.setBounds(465, 375, 105, 30);
+            dialog.add(dlgOk);
+
+            dlgReportMd.addActionListener(ev -> {
+                File outDir = getExportDirectory();
+                File targetFile = new File(outDir, "executive_report.md");
+                try {
+                    String md = "# Executive Report\n\n```\n" + reportText + "\n```\n";
+                    try (java.io.FileWriter fw = new java.io.FileWriter(targetFile)) {
+                        fw.write(md);
+                    }
+                    JOptionPane.showMessageDialog(dialog,
+                            "Executive report exported successfully!\n\nFile: " + targetFile.getAbsolutePath(),
+                            "Report Exported", JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(dialog,
+                            "Failed to export executive report: " + ex.getMessage(),
+                            "Export Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+            dlgReportCsv.addActionListener(ev -> {
+                File outDir = getExportDirectory();
+                File targetFile = new File(outDir, "executive_report.csv");
+                try {
+                    bookingService.exportExecutiveReportCsv(targetFile);
+                    JOptionPane.showMessageDialog(dialog,
+                            "Executive report exported successfully!\n\nFile: " + targetFile.getAbsolutePath(),
+                            "Report Exported", JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(dialog,
+                            "Failed to export executive report: " + ex.getMessage(),
+                            "Export Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+            dlgOk.addActionListener(ev -> dialog.dispose());
+
+            dialog.setVisible(true);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error generating report: " + ex.getMessage());
         }
     }
-
     /**
      * Cancels the selected booking record from the database upon user confirmation.
      */
